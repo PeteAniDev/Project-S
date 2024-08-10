@@ -6,6 +6,8 @@ using System.Threading;
 
 using TMPro;
 
+using UnityEditor.MemoryProfiler;
+
 using UnityEngine;
 using UnityEngine.Rendering.Universal.Internal;
 
@@ -30,10 +32,14 @@ public class WorldGenerator : MonoBehaviour {
 	private int currentRoomId = 0;
 
 	public Texture2D representation;
+	public GameObject groundBase;
+	public Transform ground;
 
 	private Dictionary<int, Color> representationColors = new Dictionary<int, Color>();
 
 	private bool mainLand = true;
+
+	private List<RoomData> limiterData = new List<RoomData>();
 
 	void Start() {
 		representationColors.Add(MAP_VOID, Color.white);
@@ -45,21 +51,31 @@ public class WorldGenerator : MonoBehaviour {
 
 	void Update() {
 		if (Input.GetKeyDown(KeyCode.Space)) {
-			if (!TryGenerate(8)) {
-				Debug.Log("FAILED TO GENERATE WORLD");
-			} else {
-				Debug.Log("SUCCESSFULLY GENERATED WORLD");
-			}
+			while (!TryGenerate(10))
+				;
 			Represent();
 		}
 	}
 
 	private void Represent() {
+		foreach (Transform room in ground) {
+			Destroy(room);
+		}
+
+		foreach (RoomData room in rooms.Values) {
+			Instantiate(groundBase, new Vector3(room.a.x + 4, room.a.y + 4, 0), Quaternion.identity, ground);
+		}
+
 		for (int x = 0; x < WORLD_SIZE; x++) {
 			for (int y = 0; y < WORLD_SIZE; y++) {
 				representation.SetPixel(x, y, representationColors[map[x][y]]);
 			}
 		}
+
+		foreach (RoomConnection connection in connections) {
+			CreateLine(representation, connection.room1.Center(), connection.room2.Center(), representationColors[MAP_PATH]);
+		}
+
 		representation.Apply();
 	}
 
@@ -74,20 +90,22 @@ public class WorldGenerator : MonoBehaviour {
 
 		rooms.Clear();
 		connections.Clear();
+		limiterData.Clear();
 		mainLand = true;
 		RoomData r1 = CreateRoom(WORLD_SIZE / 2 - 3, WORLD_SIZE / 2 - 3, WORLD_SIZE / 2 + 3, WORLD_SIZE / 2 + 3);
 		firstRoom = r1;
 		RoomData r0 = null;
-		List<RoomData> mainRooms = new List<RoomData>();
-		mainRooms.Add(r1);
+		List<RoomData> mainRooms = new List<RoomData> { r1 };
+		limiterData.Add(r1);
+		FinalizeRoom(r1);
 
 		for (int i = 1; i < mainRoomCount; i++) {
 			RoomData r2;
 
 			if (r0 != null) {
-				r2 = TryCreateRoom(r1, 5, 20, r1.Center() - r0.Center(), 62);
+				r2 = TryCreateRoom(r1, 10, 20, r1.Center() - r0.Center(), 62);
 			} else {
-				r2 = TryCreateRoom(r1, 5, 20);
+				r2 = TryCreateRoom(r1, 10, 20);
 			}
 			r0 = r1;
 
@@ -99,54 +117,92 @@ public class WorldGenerator : MonoBehaviour {
 				Debug.LogWarning("Failed to create connection");
 				return false;
 			}
+
 			r1 = r2;
 			mainRooms.Add(r1);
+			limiterData.Add(r1);
+			if (limiterData.Count > 4) {
+				limiterData.RemoveAt(0);
+			}
+			FinalizeRoom(r1);
 		}
 		lastRoom = r1;
 
 		mainLand = false;
-		TryGenerateSubRooms(mainRooms, 90);
-		TryGenerateSubRooms(mainRooms, -90);
+		if (!TryGenerateSubRooms(mainRooms, 90) || !TryGenerateSubRooms(mainRooms, -90)) {
+			Debug.LogWarning("Failed to generate sub rooms");
+			return false;
+		}
 
 		return true;
 	}
 
-	private void TryGenerateSubRooms(List<RoomData> rooms, float rotation) {
+	private bool TryGenerateSubRooms(List<RoomData> rooms, float rotation) {
 		if (rooms.Count <= 2) {
-			return;
+			return true;
 		}
 		List<RoomData> nextRooms = new List<RoomData>();
+
+		bool first = true;
+		RoomData room;
 		for (int i = 0; i < rooms.Count - 2; i++) {
 			Vector2 direction = TMath.Rotate(rooms[i + 1].Center() - rooms[i].Center(), rotation);
-			RoomData room = TryCreateRoom(rooms[i + 1], 5, 15, direction, 47);
+			room = TryCreateRoom(rooms[i + 1], 5, 25, direction, 47);
 			if (room != null) {
 				nextRooms.Add(room);
+				if (!first) {
+					if (CreateConnection(nextRooms[nextRooms.Count - 2], room) != null) {
+						FinalizeRoom(room);
+					} else {
+						nextRooms.Remove(room);
+					}
+				}
+			}
+			if (first && room != null) {
+				first = false;
+				if (CreateConnection(rooms[1], room) != null) {
+					FinalizeRoom(room);
+				} else {
+					first = true;
+					nextRooms.Remove(room);
+				}
+			}
+
+		}
+
+		if (nextRooms.Count > 1) {
+			if (CreateConnection(nextRooms[nextRooms.Count - 1], rooms[rooms.Count - 2]) != null) {
+				FinalizeRoom(nextRooms[nextRooms.Count - 1]);
+			} else {
+				return false;
 			}
 		}
-		TryGenerateSubRooms(nextRooms, rotation);
+
+		return TryGenerateSubRooms(nextRooms, rotation);
 	}
 
 	private RoomData CreateRoom(int ax, int ay, int bx, int by) {
-		for (int x = ax - 3; x <= bx + 3; x++) {
-			for (int y = ay - 3; y <= by + 3; y++) {
-				map[x][y] = MAP_FIXED_VOID;
-			}
-		}
-		for (int x = ax; x <= bx; x++) {
-			for (int y = ay; y <= by; y++) {
-				map[x][y] = mainLand ? MAP_MAIN_LAND : MAP_LAND;
-			}
-		}
-
 		RoomData room = new RoomData(ax, ay, bx, by);
-		rooms.Add(currentRoomId, room);
-
-		currentRoomId++;
 		return room;
 	}
 
+	public void FinalizeRoom(RoomData room) {
+		for (int x = room.a.x - 5; x <= room.b.x + 5; x++) {
+			for (int y = room.a.y - 5; y <= room.b.y + 5; y++) {
+				map[x][y] = MAP_FIXED_VOID;
+			}
+		}
+		for (int x = room.a.x; x <= room.b.x; x++) {
+			for (int y = room.a.y; y <= room.b.y; y++) {
+				map[x][y] = mainLand ? MAP_MAIN_LAND : MAP_LAND;
+			}
+		}
+		rooms.Add(currentRoomId, room);
+		currentRoomId++;
+	}
+
 	private RoomData TryCreateRoom(RoomData room, int querry, int maxQuerry) {
-		return TryCreateRoom(room, querry, maxQuerry, false, false, false, false);
+		return TryCreateRoom(room, Vector2.up, 200, querry, maxQuerry, false, false, false, false);
 	}
 
 	private RoomData TryCreateRoom(RoomData room, int querry, int maxQuerry, Vector2 direction, float maxAngle) {
@@ -155,10 +211,10 @@ public class WorldGenerator : MonoBehaviour {
 		float angleSouth = Mathf.Abs(Vector2.SignedAngle(Vector2.down, direction));
 		float angleWest = Mathf.Abs(Vector2.SignedAngle(Vector2.left, direction));
 
-		return TryCreateRoom(room, querry, maxQuerry, angleNorth > maxAngle, angleEast > maxAngle, angleSouth > maxAngle, angleWest > maxAngle);
+		return TryCreateRoom(room, direction, maxAngle, querry, maxQuerry, angleNorth > maxAngle, angleEast > maxAngle, angleSouth > maxAngle, angleWest > maxAngle);
 	}
 
-	private RoomData TryCreateRoom(RoomData room, int querry, int maxQuerry, bool blockNorth, bool blockEast, bool blockSouth, bool blockWest) {
+	private RoomData TryCreateRoom(RoomData room, Vector2 direction, float maxAngle, int querry, int maxQuerry, bool blockNorth, bool blockEast, bool blockSouth, bool blockWest) {
 		if (maxQuerry < querry) {
 			return null;
 		}
@@ -226,10 +282,21 @@ public class WorldGenerator : MonoBehaviour {
 			by = pos.y + Mathf.Max(sideExtends.x, sideExtends.y);
 		}
 
-		if (!CheckRoomObstruction(ax, ay, bx, by)) {
-			return CreateRoom(ax, ay, bx, by);
+		if (Mathf.Abs(Vector2.SignedAngle(direction, new Vector2(ax + bx, ay + by) / 2 - room.Center())) < maxAngle) {
+			if (!CheckRoomObstruction(ax, ay, bx, by)) {
+				if (mainLand) {
+					for (int i = 0; i < limiterData.Count - 1; i++) {
+						if (Mathf.Abs(Vector2.SignedAngle(new Vector2(ax + bx, ay + by) / 2 - limiterData[i].Center(), limiterData[i + 1].Center() - limiterData[i].Center())) >= 50) {
+							return TryCreateRoom(room, direction, maxAngle, querry + 1, maxQuerry, blockNorth, blockEast, blockSouth, blockWest);
+						}
+					}
+					return CreateRoom(ax, ay, bx, by);
+				} else {
+					return CreateRoom(ax, ay, bx, by);
+				}
+			}
 		}
-		return TryCreateRoom(room, querry + 1, maxQuerry);
+		return TryCreateRoom(room, direction, maxAngle, querry + 1, maxQuerry, blockNorth, blockEast, blockSouth, blockWest);
 	}
 
 	private bool CheckRoomObstruction(int ax, int ay, int bx, int by) {
@@ -243,11 +310,27 @@ public class WorldGenerator : MonoBehaviour {
 		return false;
 	}
 
-	// TODO
 	private RoomConnection CreateConnection(RoomData room1, RoomData room2) {
+		foreach (RoomConnection c in connections) {
+			if (TMath.CheckLSiLS(c.room1.Center(), c.room2.Center(), room1.Center(), room2.Center())) {
+				return null;
+			}
+		}
 		RoomConnection connection = new RoomConnection(room1, room2);
 		connections.Add(connection);
 		return connection;
+	}
+
+	private void CreateLine(Texture2D tex, Vector2 p1, Vector2 p2, Color col) {
+		Vector2 t = p1;
+		float frac = 1 / Mathf.Sqrt(Mathf.Pow(p2.x - p1.x, 2) + Mathf.Pow(p2.y - p1.y, 2));
+		float ctr = 0;
+
+		while ((int)t.x != (int)p2.x || (int)t.y != (int)p2.y) {
+			t = Vector2.Lerp(p1, p2, ctr);
+			ctr += frac;
+			tex.SetPixel((int)t.x, (int)t.y, col);
+		}
 	}
 
 }
