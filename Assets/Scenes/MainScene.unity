@@ -168,8 +168,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   representation: {fileID: 2800000, guid: 717c09668becfbe408e611ca56db893e, type: 3}
-  groundBase: {fileID: 8599886070424701570, guid: 8326213d9fa75934b8d4c5226e6d6172, type: 3}
+  groundBase: {fileID: 8599886070424701570, guid: 6e9207b3c7eef3c47be068b96be8c92a, type: 3}
   ground: {fileID: 1596706392}
+  groundSprite: {fileID: 21300000, guid: 8305f624f16cb6842902cceddc343460, type: 3}
+  edgeN: {fileID: 21300000, guid: 80757a03412cf8043a03c5a5261d7aa6, type: 3}
+  edgeS: {fileID: 21300000, guid: b6f98e35d6cec8a4b876567960256ef4, type: 3}
+  cornerN: {fileID: 21300000, guid: aeedbdde041a39144a1f51e5261fc147, type: 3}
+  cornerS: {fileID: 21300000, guid: f74ed35a2662c974196be830b505ac92, type: 3}
+  cornerW: {fileID: 21300000, guid: e9e8ee75f0827b045b777337e173b85f, type: 3}
+  cornerNW: {fileID: 21300000, guid: d026ae65b5558e64b9594b222a5ff8ae, type: 3}
+  cornerSW: {fileID: 21300000, guid: 670ba48da726df645b13580a697406ce, type: 3}
 --- !u!1 &588137062
 GameObject:
   m_ObjectHideFlags: 0
@@ -426,7 +434,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!212 &1858581189
 SpriteRenderer:
   m_ObjectHideFlags: 0

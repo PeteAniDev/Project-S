@@ -18,8 +18,9 @@ public class WorldGenerator : MonoBehaviour {
 	public static int MAP_VOID = 0;
 	public static int MAP_LAND = 1;
 	public static int MAP_PATH = 2;
-	public static int MAP_FIXED_VOID = 3;
-	public static int MAP_MAIN_LAND = 4;
+	public static int MAP_MAIN_LAND = 3;
+	public static int MAP_FIXED_VOID = 4;
+	public static int MAP_PATH_VOID = 5;
 
 	public int[][] map;
 
@@ -35,6 +36,15 @@ public class WorldGenerator : MonoBehaviour {
 	public GameObject groundBase;
 	public Transform ground;
 
+	public Sprite groundSprite;
+	public Sprite edgeN;
+	public Sprite edgeS;
+	public Sprite cornerN;
+	public Sprite cornerS;
+	public Sprite cornerW;
+	public Sprite cornerNW;
+	public Sprite cornerSW;
+
 	private Dictionary<int, Color> representationColors = new Dictionary<int, Color>();
 
 	private bool mainLand = true;
@@ -46,6 +56,7 @@ public class WorldGenerator : MonoBehaviour {
 		representationColors.Add(MAP_LAND, Color.blue);
 		representationColors.Add(MAP_PATH, Color.cyan);
 		representationColors.Add(MAP_FIXED_VOID, Color.gray);
+		representationColors.Add(MAP_PATH_VOID, Color.gray);
 		representationColors.Add(MAP_MAIN_LAND, Color.red);
 	}
 
@@ -59,11 +70,17 @@ public class WorldGenerator : MonoBehaviour {
 
 	private void Represent() {
 		foreach (Transform room in ground) {
-			Destroy(room);
+			Destroy(room.gameObject);
 		}
 
 		foreach (RoomData room in rooms.Values) {
-			Instantiate(groundBase, new Vector3(room.a.x + 4, room.a.y + 4, 0), Quaternion.identity, ground);
+			CreateGround(room.a.x + 4, room.a.y + 4, groundSprite, 0).gridOffset = new Vector2(-0.5f, -0.5f);
+		}
+
+		for (int x = 1; x < WORLD_SIZE - 1; x++) {
+			for (int y = 1; y < WORLD_SIZE - 1; y++) {
+				TryFill(x, y);
+			}
 		}
 
 		for (int x = 0; x < WORLD_SIZE; x++) {
@@ -72,11 +89,103 @@ public class WorldGenerator : MonoBehaviour {
 			}
 		}
 
-		foreach (RoomConnection connection in connections) {
-			CreateLine(representation, connection.room1.Center(), connection.room2.Center(), representationColors[MAP_PATH]);
-		}
-
 		representation.Apply();
+	}
+
+	private void TryFill(int x, int y) {
+		if (Land(x, y)) {
+			bool nw = Void(x - 1, y);
+			bool se = Void(x + 1, y);
+			bool sw = Void(x, y - 1);
+			bool ne = Void(x, y + 1);
+
+			if (nw && se && sw && ne) {
+				return;
+			}
+			if (nw && se && sw) {
+				CreateGround(x, y, cornerSW, 4);
+				return;
+			}
+			if (nw && se && ne) {
+				CreateGround(x, y, cornerNW, 4, true);
+				return;
+			}
+			if (nw && sw && ne) {
+				CreateGround(x, y, cornerNW, 4);
+				return;
+			}
+			if (se && sw && ne) {
+				CreateGround(x, y, cornerSW, 4, true);
+				return;
+			}
+			if (nw && se) {
+				CreateGround(x, y, edgeN, 4);
+				CreateGround(x, y, edgeS, 4, true);
+				return;
+			}
+			if (sw && ne) {
+				CreateGround(x, y, edgeN, 4, true);
+				CreateGround(x, y, edgeS, 4);
+				return;
+			}
+			if (nw && ne) {
+				CreateGround(x, y, cornerN, 4);
+				return;
+			}
+			if (ne && se) {
+				CreateGround(x, y, cornerW, 4, true);
+				return;
+			}
+			if (se && sw) {
+				CreateGround(x, y, cornerS, 4);
+				return;
+			}
+			if (sw && nw) {
+				CreateGround(x, y, cornerW, 4);
+				return;
+			}
+			if (nw) {
+				CreateGround(x, y, edgeN, 4);
+				return;
+			}
+			if (ne) {
+				CreateGround(x, y, edgeN, 4, true);
+				return;
+			}
+			if (sw) {
+				CreateGround(x, y, edgeS, 4);
+				return;
+			}
+			if (se) {
+				CreateGround(x, y, edgeS, 4, true);
+				return;
+			}
+		}
+	}
+
+	private bool Land(int x, int y) {
+		return map[x][y] == MAP_LAND || map[x][y] == MAP_MAIN_LAND;
+	}
+
+	private bool Path(int x, int y) {
+		return map[x][y] == MAP_PATH;
+	}
+
+	private bool Void(int x, int y) {
+		return map[x][y] == MAP_VOID || map[x][y] == MAP_FIXED_VOID;
+	}
+
+	private GridLock CreateGround(int x, int y, Sprite sprite, int order) {
+		return CreateGround(x, y, sprite, order, false);
+	}
+
+	private GridLock CreateGround(int x, int y, Sprite sprite, int order, bool flip) {
+		GameObject obj = Instantiate(groundBase, (Vector3)GridLock.ToWorldPos(new Vector2(x, y)), Quaternion.identity, ground);
+		SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
+		sr.sprite = sprite;
+		sr.sortingOrder = order;
+		sr.flipX = flip;
+		return obj.GetComponent<GridLock>();
 	}
 
 	private bool TryGenerate(int mainRoomCount) {
@@ -134,7 +243,75 @@ public class WorldGenerator : MonoBehaviour {
 			return false;
 		}
 
+		foreach (RoomConnection connection in connections) {
+			TryGeneratePath(connection);
+		}
+
 		return true;
+	}
+
+	private bool exitedLand = false;
+
+	private bool TryGeneratePath(RoomConnection connection) {
+		exitedLand = false;
+		bool[][] map = new bool[this.map.Length][];
+		for (int x = 0; x < map.Length; x++) {
+			map[x] = new bool[this.map[x].Length];
+			for (int y = 0; y < map[x].Length; y++) {
+				map[x][y] = false;
+			}
+		}
+		Vector2Int r1 = new Vector2Int((int)connection.room1.Center().x, (int)connection.room1.Center().y);
+		Vector2Int r2 = new Vector2Int((int)connection.room2.Center().x, (int)connection.room2.Center().y);
+		return PathFind(map, r1.x, r1.y, r2.x, r2.y, 100);
+	}
+
+	private static Vector2Int[] checker = new Vector2Int[] { new Vector2Int(-1, 0), new Vector2Int(-1, -1), new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(2, 0), new Vector2Int(2, -1), new Vector2Int(0, -2), new Vector2Int(1, -2) };
+	private static Vector2Int[] movement = new Vector2Int[] { new Vector2Int(-1, 1), new Vector2Int(-1, 0), new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1), new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(0, 1) };
+	private static int[][][] move = new int[][][] {
+		new int[][] { new int[] { },new int[] { 7, 6, 0, 5, 1, 4, 2, 3 }, new int[] { 3, 4, 2, 5, 1, 6, 0, 7 } },
+		new int[][] { new int[] { 5, 4, 6, 3, 7, 2, 0, 1 }, new int[] { 6, 5, 7, 4, 0, 3, 1, 2 }, new int[] { 4, 5, 3, 6, 2, 7, 1, 0 } },
+		new int[][] { new int[] { 1, 2, 0, 3, 7, 4, 6, 5 }, new int[] { 0, 1, 7, 2, 6, 3, 5, 4 }, new int[] { 2, 3, 1, 4, 0, 5, 7, 6 } }
+	};
+
+	private bool PathFind(bool[][] map, int x, int y, int targetX, int targetY, int attempt) {
+		int moveX = 0;
+		if (x > targetX) {
+			moveX = 2;
+		} else if (x < targetX) {
+			moveX = 1;
+		}
+		int moveY = 0;
+		if (y > targetY) {
+			moveY = 2;
+		} else if (y < targetY) {
+			moveY = 1;
+		}
+
+		if (map[x][y]) {
+			return false;
+		}
+		if (moveX == 0 && moveY == 0) {
+			return true;
+		}
+
+		if (x == targetX && y == targetY) {
+			if (Void(x, y)) {
+				this.map[x][y] = MAP_PATH;
+			}
+			return true;
+		}
+		map[x][y] = true;
+
+		for (int i = 0; i < 8; i++) {
+			if (PathFind(map, x + movement[move[moveX][moveY][i]].x, y + movement[move[moveX][moveY][i]].y, targetX, targetY, attempt - 1)) {
+				if (Void(x, y)) {
+					this.map[x][y] = MAP_PATH;
+				}
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private bool TryGenerateSubRooms(List<RoomData> rooms, float rotation) {
@@ -281,6 +458,8 @@ public class WorldGenerator : MonoBehaviour {
 			bx = pos.x + frontExtend;
 			by = pos.y + Mathf.Max(sideExtends.x, sideExtends.y);
 		}
+		bx--;
+		by--;
 
 		if (Mathf.Abs(Vector2.SignedAngle(direction, new Vector2(ax + bx, ay + by) / 2 - room.Center())) < maxAngle) {
 			if (!CheckRoomObstruction(ax, ay, bx, by)) {
