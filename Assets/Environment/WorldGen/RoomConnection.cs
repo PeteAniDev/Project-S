@@ -13,4 +13,14 @@ public class RoomConnection {
 		this.room2 = room2;
 	}
 
+	public RoomData GetOther(RoomData room) {
+		if (room == room1) {
+			return room2;
+		}
+		if (room == room2) {
+			return room1;
+		}
+		return null;
+	}
+
 }

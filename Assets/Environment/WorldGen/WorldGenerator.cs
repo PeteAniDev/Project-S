@@ -1,15 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Threading;
-
-using TMPro;
-
-using UnityEditor.MemoryProfiler;
 
 using UnityEngine;
-using UnityEngine.Rendering.Universal.Internal;
+using UnityEngine.UIElements;
 
 public class WorldGenerator : MonoBehaviour {
 
@@ -62,7 +55,7 @@ public class WorldGenerator : MonoBehaviour {
 
 	void Update() {
 		if (Input.GetKeyDown(KeyCode.Space)) {
-			while (!TryGenerate(10))
+			if (!TryGenerate(10))
 				;
 			Represent();
 		}
@@ -244,74 +237,137 @@ public class WorldGenerator : MonoBehaviour {
 		}
 
 		foreach (RoomConnection connection in connections) {
-			TryGeneratePath(connection);
+			if (!TryGeneratePath(connection)) {
+				Debug.LogWarning("Failed to generate path");
+			}
 		}
 
 		return true;
 	}
 
-	private bool exitedLand = false;
-
 	private bool TryGeneratePath(RoomConnection connection) {
-		exitedLand = false;
-		bool[][] map = new bool[this.map.Length][];
-		for (int x = 0; x < map.Length; x++) {
-			map[x] = new bool[this.map[x].Length];
-			for (int y = 0; y < map[x].Length; y++) {
-				map[x][y] = false;
-			}
+		RoomData[] rooms = new RoomData[] { connection.room1, connection.room2 };
+		Vector2Int r1 = new Vector2Int((int)rooms[0].Center().x, (int)rooms[0].Center().y);
+		Vector2Int r2 = new Vector2Int((int)rooms[1].Center().x, (int)rooms[1].Center().y);
+		Vector2Int[] rs = new Vector2Int[] { r1, r2 };
+		Vector2Int[] gates = new Vector2Int[2];
+		float angle1 = TMath.Angle(Vector2.up, r2 - r1) + 45;
+		if (angle1 < 0) {
+			angle1 += 360;
 		}
-		Vector2Int r1 = new Vector2Int((int)connection.room1.Center().x, (int)connection.room1.Center().y);
-		Vector2Int r2 = new Vector2Int((int)connection.room2.Center().x, (int)connection.room2.Center().y);
-		return PathFind(map, r1.x, r1.y, r2.x, r2.y, 100);
-	}
+		float angle2 = TMath.Angle(Vector2.up, r1 - r2) + 45;
+		if (angle2 < 0) {
+			angle2 += 360;
+		}
+		float[] angles = new float[] { angle1, angle2 };
 
-	private static Vector2Int[] checker = new Vector2Int[] { new Vector2Int(-1, 0), new Vector2Int(-1, -1), new Vector2Int(0, 1), new Vector2Int(1, 1), new Vector2Int(2, 0), new Vector2Int(2, -1), new Vector2Int(0, -2), new Vector2Int(1, -2) };
-	private static Vector2Int[] movement = new Vector2Int[] { new Vector2Int(-1, 1), new Vector2Int(-1, 0), new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1), new Vector2Int(1, 0), new Vector2Int(1, 1), new Vector2Int(0, 1) };
-	private static int[][][] move = new int[][][] {
-		new int[][] { new int[] { },new int[] { 7, 6, 0, 5, 1, 4, 2, 3 }, new int[] { 3, 4, 2, 5, 1, 6, 0, 7 } },
-		new int[][] { new int[] { 5, 4, 6, 3, 7, 2, 0, 1 }, new int[] { 6, 5, 7, 4, 0, 3, 1, 2 }, new int[] { 4, 5, 3, 6, 2, 7, 1, 0 } },
-		new int[][] { new int[] { 1, 2, 0, 3, 7, 4, 6, 5 }, new int[] { 0, 1, 7, 2, 6, 3, 5, 4 }, new int[] { 2, 3, 1, 4, 0, 5, 7, 6 } }
-	};
+		for (int j = 0; j < 2; j++) {
+			RoomData room = rooms[j];
+			Vector2Int r = rs[j];
+			float angle = angles[j];
 
-	private bool PathFind(bool[][] map, int x, int y, int targetX, int targetY, int attempt) {
-		int moveX = 0;
-		if (x > targetX) {
-			moveX = 2;
-		} else if (x < targetX) {
-			moveX = 1;
-		}
-		int moveY = 0;
-		if (y > targetY) {
-			moveY = 2;
-		} else if (y < targetY) {
-			moveY = 1;
-		}
-
-		if (map[x][y]) {
-			return false;
-		}
-		if (moveX == 0 && moveY == 0) {
-			return true;
-		}
-
-		if (x == targetX && y == targetY) {
-			if (Void(x, y)) {
-				this.map[x][y] = MAP_PATH;
-			}
-			return true;
-		}
-		map[x][y] = true;
-
-		for (int i = 0; i < 8; i++) {
-			if (PathFind(map, x + movement[move[moveX][moveY][i]].x, y + movement[move[moveX][moveY][i]].y, targetX, targetY, attempt - 1)) {
-				if (Void(x, y)) {
-					this.map[x][y] = MAP_PATH;
+			List<Vector2Int> possibleGates = new List<Vector2Int>();
+			if (angle >= 0 && angle < 90) {
+				for (int x = room.a.x - 1; x < room.b.x + 1; x++) {
+					possibleGates.Add(new Vector2Int(x, room.b.y + 1));
 				}
-				return true;
+			} else if (angle >= 90 && angle <= 180) {
+				for (int y = room.b.y + 1; y > room.a.y - 1; y--) {
+					possibleGates.Add(new Vector2Int(room.b.x + 1, y));
+				}
+			} else if (angle >= 180 && angle < 270) {
+				for (int x = room.b.x + 1; x > room.a.x - 1; x--) {
+					possibleGates.Add(new Vector2Int(x, room.a.y - 1));
+				}
+			} else {
+				for (int y = room.a.y - 1; y < room.b.y + 1; y++) {
+					possibleGates.Add(new Vector2Int(room.a.x - 1, y));
+				}
 			}
+
+			List<Vector2Int> actualPossibleGates = new List<Vector2Int>();
+			List<RoomConnection> validConnections = new List<RoomConnection>();
+			for (int i = 0; i < room.connections.Count; i++) {
+				Vector2Int cr = new Vector2Int((int)room.connections[i].GetOther(room).Center().x, (int)room.connections[i].GetOther(room).Center().y);
+				float a = TMath.Angle(Vector2.up, cr - r) + 45;
+				if (a < 0) {
+					a += 360;
+				}
+				if (Div(angle) == Div(a)) {
+					validConnections.Add(room.connections[i]);
+				}
+			}
+			if (validConnections.Count <= 0) {
+				Debug.Log("No Valid Connections");
+				return false;
+			}
+			for (int i = 1 + possibleGates.Count * validConnections.IndexOf(connection) / validConnections.Count; i < possibleGates.Count * (validConnections.IndexOf(connection) + 1) / validConnections.Count; i++) {
+				actualPossibleGates.Add(possibleGates[i]);
+			}
+			if (actualPossibleGates.Count <= 0) {
+				Debug.Log("Can't Find Possible Gates");
+				return false;
+			}
+			gates[j] = TMath.PickRandom(actualPossibleGates);
+		}
+
+		int[][] map = new int[this.map.Length][];
+		for (int x = 0; x < map.Length; x++) {
+			map[x] = new int[this.map[x].Length];
+			for (int y = 0; y < map[x].Length; y++) {
+				map[x][y] = Void(x, y) ? 4 : 0;
+			}
+		}
+		foreach (RoomData room in this.rooms.Values) {
+			for (int j = 1; j <= 5; j++) {
+				for (int i = room.a.x - j; i <= room.b.x + j; i++) {
+					if (map[i][room.a.y + j] > 0) {
+						map[i][room.a.y + j] = j == 1 ? 32 : Mathf.Max(map[i][room.a.y + j], 9 - j);
+					}
+					if (map[i][room.b.y + j] > 0) {
+						map[i][room.b.y + j] = j == 1 ? 32 : Mathf.Max(map[i][room.b.y + j], 9 - j);
+					}
+				}
+				for (int i = room.a.y - j; i <= room.b.y + j; i++) {
+					if (map[room.a.x + j][i] > 0) {
+						map[room.a.x + j][i] = j == 1 ? 32 : Mathf.Max(map[room.a.x + j][i], 9 - j);
+					}
+					if (map[room.b.x + j][i] > 0) {
+						map[room.b.x + j][i] = j == 1 ? 32 : Mathf.Max(map[room.b.x + j][i], 9 - j);
+					}
+				}
+			}
+		}
+
+		AStar.pathFindAttempt = (Mathf.Abs(gates[0].x - gates[1].x) + Mathf.Abs(gates[0].y - gates[1].y)) * 8 + 64;
+		if (AStar.PathFind(map, gates[0].x, gates[0].y, gates[1].x, gates[1].y)) {
+			foreach (Vector2Int path in AStar.PathList) {
+				for (int x = -1; x < 2; x++) {
+					for (int y = -1; y < 2; y++) {
+						try {
+							if (Void(path.x + x, path.y + y)) {
+								this.map[path.x + x][path.y + y] = MAP_PATH_VOID;
+							}
+						} catch (IndexOutOfRangeException) { }
+					}
+				}
+				this.map[path.x][path.y] = MAP_PATH;
+			}
+			return true;
 		}
 		return false;
+	}
+
+	private int Div(float angle) {
+		if (angle >= 0 && angle < 90) {
+			return 0;
+		} else if (angle >= 90 && angle <= 180) {
+			return 1;
+		} else if (angle >= 180 && angle < 270) {
+			return 2;
+		} else {
+			return 3;
+		}
 	}
 
 	private bool TryGenerateSubRooms(List<RoomData> rooms, float rotation) {
@@ -428,9 +484,9 @@ public class WorldGenerator : MonoBehaviour {
 			pos = new Vector2Int(TMath.RandInt(room.a.x - querry, room.b.x + querry), negativeQuerry ? TMath.RandInt(room.a.y - 4 - querry, room.a.y - 4) : TMath.RandInt(room.b.y + 4, room.b.y + 4 + querry));
 		}
 
-		int sideSize = TMath.RandInt(5, 8);
+		int sideSize = TMath.RandInt(6, 8);
 		int sideExtend = TMath.RandInt(-sideSize + 1, sideSize - 1);
-		int frontExtend = TMath.RandInt(5, 8);
+		int frontExtend = TMath.RandInt(6, 8);
 		Vector2Int sideExtends = new Vector2Int(sideExtend, sideExtend + (TMath.RandBool() ? sideSize : -sideSize));
 
 		int ax = 0;
@@ -497,19 +553,32 @@ public class WorldGenerator : MonoBehaviour {
 		}
 		RoomConnection connection = new RoomConnection(room1, room2);
 		connections.Add(connection);
-		return connection;
-	}
 
-	private void CreateLine(Texture2D tex, Vector2 p1, Vector2 p2, Color col) {
-		Vector2 t = p1;
-		float frac = 1 / Mathf.Sqrt(Mathf.Pow(p2.x - p1.x, 2) + Mathf.Pow(p2.y - p1.y, 2));
-		float ctr = 0;
-
-		while ((int)t.x != (int)p2.x || (int)t.y != (int)p2.y) {
-			t = Vector2.Lerp(p1, p2, ctr);
-			ctr += frac;
-			tex.SetPixel((int)t.x, (int)t.y, col);
+		RoomData[] room = new RoomData[] { room1, room2 };
+		for (int j = 0; j < 2; j++) {
+			if (room[j].connections.Count <= 0) {
+				room[j].connections.Add(connection);
+			} else {
+				for (int i = 0; i < room[j].connections.Count; i++) {
+					float a1 = TMath.Angle(Vector2.up, room[(j + 1) % 2].Center() - room[j].Center()) + 45;
+					if (a1 < 0) {
+						a1 += 360;
+					}
+					float a2 = TMath.Angle(Vector2.up, room[j].connections[i].GetOther(room[j]).Center() - room[j].Center()) + 45;
+					if (a2 < 0) {
+						a2 += 360;
+					}
+					if (a1 < a2) {
+						room[j].connections.Insert(i, connection);
+						break;
+					}
+				}
+				if (!room[j].connections.Contains(connection)) {
+					room[j].connections.Add(connection);
+				}
+			}
 		}
+		return connection;
 	}
 
 }

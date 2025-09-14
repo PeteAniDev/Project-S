@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-public class WorldObject : GridLock {
+public abstract class ActiveObject : QueueObject {
 
-	public static List<WorldObject> objects = new List<WorldObject>();
+	public static List<ActiveObject> objects = new List<ActiveObject>();
 
 	public Hitbox hitbox;
 	public bool movable = false;
