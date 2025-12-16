@@ -5,17 +5,16 @@ using UnityEngine;
 
 public abstract class ActiveObject : QueueObject {
 
-	public static List<ActiveObject> objects = new List<ActiveObject>();
+	public static List<ActiveObject> activeObjs = new List<ActiveObject>();
 
-	public Hitbox hitbox;
-	public bool movable = false;
-
-	private void OnEnable() {
-		objects.Add(this);
+	public override void OnEnable() {
+		base.OnEnable();
+		activeObjs.Add(this);
 	}
 
-	private void OnDisable() {
-		objects.Remove(this);
+	public override void OnDisable() {
+		activeObjs.Remove(this);
+		base.OnDisable();
 	}
 
 }

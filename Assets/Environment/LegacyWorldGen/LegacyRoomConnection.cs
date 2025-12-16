@@ -3,17 +3,17 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-public class RoomConnection {
+public class LegacyRoomConnection {
 
-	public RoomData room1;
-	public RoomData room2;
+	public LegacyRoomData room1;
+	public LegacyRoomData room2;
 
-	public RoomConnection(RoomData room1, RoomData room2) {
+	public LegacyRoomConnection(LegacyRoomData room1, LegacyRoomData room2) {
 		this.room1 = room1;
 		this.room2 = room2;
 	}
 
-	public RoomData GetOther(RoomData room) {
+	public LegacyRoomData GetOther(LegacyRoomData room) {
 		if (room == room1) {
 			return room2;
 		}

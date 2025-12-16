@@ -11,15 +11,22 @@ public class GridLock : MonoBehaviour {
 	public float heightOffset = 0;
 	public bool gridSnap = true;
 
-	private void Start() {
+	protected Vector2Int lastPosition;
+
+	protected virtual void Start() {
 		gridPosition = ToGridPos(transform.position);
+		lastPosition = gridPosition;
 	}
 
-	private void Update() {
+	protected virtual void Update() {
 		if (gridSnap) {
 			transform.position = ToWorldPos(gridPosition + gridOffset) + new Vector2(0, heightOffset);
 		} else {
 			gridPosition = ToGridPos(transform.position - new Vector3(0, heightOffset, 0));
+		}
+		if (lastPosition != gridPosition) {
+			OnPositionChange();
+			lastPosition = gridPosition;
 		}
 	}
 
@@ -31,6 +38,9 @@ public class GridLock : MonoBehaviour {
 		float y = (pos.x + pos.y / 0.5f) / 2;
 		float x = pos.x - y;
 		return new Vector2Int(Mathf.RoundToInt(x), Mathf.RoundToInt(y));
+	}
+
+	public virtual void OnPositionChange() {
 	}
 
 }

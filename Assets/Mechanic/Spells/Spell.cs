@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -6,17 +7,31 @@ using UnityEngine;
 public class Spell {
 
 	public Hitbox hitbox;
+	public Hitbox castbox;
 	public Entity owner;
+	public Vector2Int castPos;
+	public int castTime = 0;
+	public int coolTime = 1;
+
+	public Spell(int coolTime) {
+		this.coolTime = coolTime;
+		hitbox = new Hitbox(new List<Vector2Int>() { Vector2Int.zero });
+		castbox = new Hitbox(new List<Vector2Int>() { Vector2Int.zero });
+	}
+
+	public virtual void RefreshCastBox() {
+	}
 
 	public void Cast(Vector2Int position) {
 		OnCast(position);
-		if (hitbox != null) {
+		if (hitbox.extends != null) {
 			foreach (Vector2Int extend in hitbox.extends) {
 				foreach (Entity entity in Entity.entities) {
 					bool hit = false;
 					foreach (Vector2Int entityExtend in entity.hitbox.extends) {
 						if (position + extend == entity.gridPosition + entityExtend) {
 							OnEntityHit(entity, position + extend);
+							hit = true;
 						}
 					}
 					if (hit) {
@@ -28,17 +43,7 @@ public class Spell {
 					foreach (Vector2Int objExtend in obj.hitbox.extends) {
 						if (position + extend == obj.gridPosition + objExtend) {
 							OnObjectHit(obj, position + extend);
-						}
-					}
-					if (hit) {
-						OnObjectHitOnce(obj);
-					}
-				}
-				foreach (ActiveObject obj in ActiveObject.objects) {
-					bool hit = false;
-					foreach (Vector2Int objExtend in obj.hitbox.extends) {
-						if (position + extend == obj.gridPosition + objExtend) {
-							OnObjectHit(obj, position + extend);
+							hit = true;
 						}
 					}
 					if (hit) {
@@ -47,9 +52,12 @@ public class Spell {
 				}
 			}
 		}
+		owner.endTurn = true;
+		owner.turnCost += coolTime;
 	}
 
 	public virtual void OnCast(Vector2Int position) {
+		castPos = position;
 	}
 
 	public virtual void OnEntityHit(Entity entity, Vector2Int contactPosition) {
@@ -68,6 +76,10 @@ public class Spell {
 	}
 
 	public virtual void OnObjectHitOnce(ActiveObject obj) {
+	}
+
+	public virtual bool CanCast(Vector2Int castPosition, Vector2Int ownerPosition) {
+		return castbox.Overlap(castPosition - ownerPosition);
 	}
 
 }

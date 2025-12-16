@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -7,16 +8,31 @@ public abstract class Entity : QueueObject {
 
 	public static List<Entity> entities = new List<Entity>();
 
-	public Hitbox hitbox;
 	public int hp;
 	public int maxHp;
 
-	private void OnEnable() {
+	public override void OnEnable() {
+		base.OnEnable();
 		entities.Add(this);
 	}
 
-	private void OnDisable() {
+	public override void OnDisable() {
 		entities.Remove(this);
+		base.OnDisable();
+	}
+
+	public virtual void Damage(Entity entity, int damage) {
+		entity.hp -= damage;
+	}
+
+	public virtual void Heal(Entity entity, int healing) {
+		entity.hp += healing;
+	}
+
+	public abstract bool IsTeam(Entity owner);
+
+	public void Push(Vector2Int direction) {
+		gridPosition += direction;
 	}
 
 }

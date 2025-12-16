@@ -1,5 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+
+using UnityEditor;
 
 using UnityEngine;
 
@@ -25,7 +28,7 @@ public class TurnManager : MonoBehaviour {
 		}
 
 		if (currentTurn.WhileTurn()) {
-			currentTurn.AfterTurn();
+			Queue(currentTurn, currentTurn.AfterTurn());
 			currentTurn = null;
 		}
 	}
@@ -38,8 +41,10 @@ public class TurnManager : MonoBehaviour {
 		for (int i = 0; i < queue.Count; i++) {
 			if (queue[i].queueTime > obj.queueTime) {
 				queue.Insert(i, obj);
+				return;
 			}
 		}
+		queue.Add(obj);
 	}
 
 	public void DropQueue(QueueObject obj) {
@@ -50,6 +55,20 @@ public class TurnManager : MonoBehaviour {
 
 	public void ClearQueue() {
 		queue.Clear();
+	}
+
+	private void OnDrawGizmos() {
+		if (queue == null || queue.Count == 0 || Camera.main == null) {
+			return;
+		}
+
+		string queueText = string.Join(" -> ", queue.Select(obj => $"{obj.objName}({obj.queueTime})"));
+
+		Vector3 screenCenterTop = new Vector3(Screen.width / 2, Screen.height - 20);
+		Vector3 worldPos = Camera.main.ScreenToWorldPoint(screenCenterTop);
+
+		Handles.color = Color.black;
+		Handles.Label(worldPos, queueText);
 	}
 
 }
