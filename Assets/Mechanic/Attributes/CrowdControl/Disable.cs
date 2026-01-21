@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-public class Root : StatusEffect {
+public class Disable : CrowdControlEffect {
 
 	public override void ApplyEffect(StatusAttributes target) {
-		target.canMove = false;
+		target.canAttack = false;
 	}
 
 }

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-public class Invulnerable : StatusEffect {
+public class Silence : CrowdControlEffect {
 
 	public override void ApplyEffect(StatusAttributes target) {
-		target.isVulnerable = false;
+		target.canCast = false;
 	}
 
 }

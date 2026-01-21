@@ -8,6 +8,7 @@ public class WorldGenerator : MonoBehaviour {
 	public int size = 4;
 	public Dictionary<Vector2Int, RoomData> rooms = new Dictionary<Vector2Int, RoomData>();
 	public float wallChance = 0.5f;
+	public float doubleWallChance = 0.3f;
 
 	[Header("Gizmo Settings")]
 	public float roomSize = 2f;
@@ -84,6 +85,9 @@ public class WorldGenerator : MonoBehaviour {
 
 		// Randomly create a wall between two adjacent rooms
 		CreateRandomWallInGrid(bottomLeft, bottomRight, topLeft, topRight);
+		if (Random.value < doubleWallChance) {
+			CreateRandomWallInGrid(bottomLeft, bottomRight, topLeft, topRight);
+		}
 	}
 
 	private bool HasWallsInPlusPattern(Vector2Int bottomLeft, Vector2Int bottomRight, Vector2Int topLeft, Vector2Int topRight) {

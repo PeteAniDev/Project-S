@@ -25,7 +25,8 @@ public class Spell {
 	public void Cast(Vector2Int position) {
 		OnCast(position);
 		if (hitbox.extends != null) {
-			foreach (Vector2Int extend in hitbox.extends) {
+			for (int i = 0; i < hitbox.extends.Count; i++) {
+				Vector2Int extend = hitbox.extends[i];
 				foreach (Entity entity in Entity.entities) {
 					bool hit = false;
 					foreach (Vector2Int entityExtend in entity.hitbox.extends) {
@@ -52,12 +53,16 @@ public class Spell {
 				}
 			}
 		}
+		OnEndCast(position);
 		owner.endTurn = true;
 		owner.turnCost += coolTime;
 	}
 
 	public virtual void OnCast(Vector2Int position) {
 		castPos = position;
+	}
+
+	public virtual void OnEndCast(Vector2Int position) {
 	}
 
 	public virtual void OnEntityHit(Entity entity, Vector2Int contactPosition) {

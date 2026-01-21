@@ -13,6 +13,17 @@ public struct Hitbox {
 		this.extends = extends;
 	}
 
+	public static Hitbox NewCross(int size) {
+		Hitbox hitbox = new Hitbox(new List<Vector2Int>() { Vector2Int.zero });
+		for (int i = 1; i <= size; i++) {
+			hitbox.extends.Add(new Vector2Int(i, 0));
+			hitbox.extends.Add(new Vector2Int(-i, 0));
+			hitbox.extends.Add(new Vector2Int(0, i));
+			hitbox.extends.Add(new Vector2Int(0, -i));
+		}
+		return hitbox;
+	}
+
 	public static Hitbox NewSquare(int size) {
 		Hitbox hitbox = new Hitbox(new List<Vector2Int>());
 		for (int x = -size; x <= size; x++) {

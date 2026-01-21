@@ -11,9 +11,22 @@ public class WorldObject : GridLock {
 	public Hitbox hitbox;
 	public bool movable = false;
 
-	public virtual void OnEnable() => objects.Add(this);
+	public virtual void OnEnable() {
+		objects.Add(this);
+		if (!objectMap.ContainsKey(gridPosition)) {
+			objectMap[gridPosition] = new List<WorldObject>();
+		}
+		objectMap[gridPosition].Add(this);
+	}
 
-	public virtual void OnDisable() => objects.Remove(this);
+	public virtual void OnDisable() {
+		objects.Remove(this);
+		if (objectMap.ContainsKey(gridPosition)) {
+			if (objectMap[gridPosition].Contains(this)) {
+				objectMap[gridPosition].Remove(this);
+			}
+		}
+	}
 
 	public override void OnPositionChange() {
 		if (objectMap.ContainsKey(lastPosition)) {

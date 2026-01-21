@@ -5,11 +5,20 @@ using UnityEngine;
 
 public class SpellIndicator : MonoBehaviour {
 
+	public static SpellIndicator instance;
+
 	public SpellLoadout loadout = null;
 	public int selection;
 	public Entity owner;
 
+	private void Awake() {
+		instance = this;
+	}
+
 	private void Start() {
+		loadout.spells.Add(new Move());
+		loadout.spells.Add(new Fireball());
+
 		if (loadout != null) {
 			loadout.owner = owner;
 		}

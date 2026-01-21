@@ -19,6 +19,9 @@ public class TurnManager : MonoBehaviour {
 	}
 
 	private void Update() {
+		if (currentTurn is Player player) {
+			SpellIndicator.instance.owner = player;
+		}
 		if (currentTurn == null) {
 			if (queue.Count <= 0) {
 				return;

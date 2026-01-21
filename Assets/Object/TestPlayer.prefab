@@ -201,10 +201,13 @@ MonoBehaviour:
   gridOffset: {x: 0, y: 0}
   heightOffset: 0
   gridSnap: 1
-  objName: Player
-  queueTime: 0
   hitbox:
     extends:
     - {x: 0, y: 0}
-  hp: 10
+  movable: 0
+  objName: Player
+  queueTime: 0
+  endTurn: 0
+  turnCost: 0
+  hp: 100
   maxHp: 10
